@@ -1,41 +1,7 @@
-// Huge hack until a real type definition for this comes out (or I make one)
-interface WebGLVertexArrayObject {}
-interface WebGL2RenderingContext extends WebGLRenderingContext {
-    createVertexArray(): WebGLVertexArrayObject;
-    bindVertexArray(vao: WebGLVertexArrayObject): void;
-}
+import * as util from "./util";
 
-// https://webgl2fundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
-function resize(canvas: HTMLCanvasElement): void {
-    const cssToRealPixels = window.devicePixelRatio || 1;
-
-    // find the size at which the browser is displaying the canvas
-    const displayWidth = Math.floor(canvas.clientWidth * cssToRealPixels);
-    const displayHeight = Math.floor(canvas.clientHeight * cssToRealPixels);
-
-    // If the canvas' internal drawingbuffer size does not match the display
-    // size, update it the drawingbuffer size.
-    if (canvas.width != displayWidth || canvas.height != displayHeight) {
-        canvas.width = displayWidth;
-        canvas.height = displayHeight;
-    }
-}
-
-/** Returns a WebGL2RenderingContext or throws if not possible. */
-function getWebGL2Context(canvas: HTMLCanvasElement): WebGL2RenderingContext {
-    const gl = canvas.getContext("webgl2");
-    if (!gl) {
-        throw new Error("couldn't get WebGL2RenderingContext");
-    }
-    return gl as WebGL2RenderingContext;
-}
-
-function drawLoop(gl: WebGL2RenderingContext, now: number = performance.now()): void {
-    resize(gl.canvas);
-    requestAnimationFrame(t => drawLoop(gl, t));
-}
-
-const vertexShaderSource = `#version 300 es
+function fuchsiaTriangle(gl: WebGL2RenderingContext): void {
+    const vertexShaderSource = `#version 300 es
 // An attribute is an input (in) to a vertex shader. It will receive data from
 // a buffer.
 in vec4 a_position;
@@ -48,7 +14,7 @@ void main() {
 }
 `;
 
-const fragmentShaderSource = `#version 300 es
+    const fragmentShaderSource = `#version 300 es
 // Fragment shaders don't have a default precision so we need to pick one.
 // mediump is a good default. It means "medium precision"
 precision mediump float;
@@ -62,55 +28,9 @@ void main() {
 }
 `;
 
-function createShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
-    const shader = gl.createShader(type);
-    if (!shader) {
-        throw Error(`createShader failed for type ${type}`);
-    }
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-    if (success) {
-        return shader;
-    }
-    console.log(gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    throw Error("Could not create shader");
-}
-
-function createProgram(
-    gl: WebGL2RenderingContext,
-    vertexShader: WebGLShader,
-    fragmentShader: WebGLShader): WebGLProgram {
-  const program = gl.createProgram();
-  if (!program) {
-      throw Error("Failed to create WebGL program");
-  }
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  const success = gl.getProgramParameter(program, gl.LINK_STATUS);
-  if (success) {
-      return program;
-  }
-  console.log(gl.getProgramInfoLog(program));
-  gl.deleteProgram(program);
-  throw Error("Failed to link WebGL program");
-}
-
-function main(): void {
-    console.log("starting main");
-
-    const canvas = document.querySelector("canvas");
-    if (!canvas) {
-        throw new Error("couldn't find canvas element");
-    }
-
-    const gl = getWebGL2Context(canvas);
-
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-    const program = createProgram(gl, vertexShader, fragmentShader);
+    const vertexShader = util.createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = util.createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    const program = util.createProgram(gl, vertexShader, fragmentShader);
 
     // look up where the vertex data needs to go
     const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
@@ -149,7 +69,7 @@ function main(): void {
         stride,
         offset);
 
-    resize(gl.canvas);
+    util.resize(gl.canvas);
 
     // Tell WebGL how to convert from clip space to pixels
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -162,8 +82,16 @@ function main(): void {
 
     // draw
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
 
-    // drawLoop(gl);
+function main(): void {
+    console.log("starting main");
+    const canvas = document.querySelector("canvas");
+    if (!canvas) {
+        throw new Error("couldn't find canvas element");
+    }
+    const gl = util.getWebGL2Context(canvas);
+    fuchsiaTriangle(gl);
     console.log("ending main");
 }
 
